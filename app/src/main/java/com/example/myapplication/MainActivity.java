@@ -47,6 +47,8 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
     private MqttClient mqttClient;
     private static final int REQUEST_ENABLE_BT = 1;
     private static final int PERMISSION_REQUEST_COARSE_LOCATION = 2;
+    private static final int REQUEST_ACCESS_LOCATION = 2;
+
 
     private BluetoothAdapter bluetoothAdapter;
     private BluetoothLeScanner bluetoothLeScanner;
@@ -202,18 +204,20 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         ScanSettings settings = new ScanSettings.Builder()
                 .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
                 .build();
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.BLUETOOTH}, REQUEST_ENABLE_BT);
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_ACCESS_LOCATION);
         }
         bluetoothLeScanner.startScan(null, settings, scanCallback);
     }
 
     private void stopScanning() {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.BLUETOOTH}, REQUEST_ENABLE_BT);
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_ACCESS_LOCATION);
         }
         bluetoothLeScanner.stopScan(scanCallback);
     }
+
+
 
     private class SampleScanCallback extends ScanCallback {
         @Override
@@ -304,6 +308,16 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
             } else {
                 // Il permesso è stato negato, potresti mostrare un messaggio all'utente o disabilitare la funzionalità BLE
                 Log.e("MainActivity", "Permesso Bluetooth negato.");
+            }
+        }
+        if (requestCode == REQUEST_ACCESS_LOCATION) {
+            // Verifica se l'utente ha concesso il permesso
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // L'utente ha concesso il permesso, puoi avviare la scansione Bluetooth
+                startScanning();
+            } else {
+                // L'utente non ha concesso il permesso, gestisci il caso di mancato permesso qui
+                // Puoi mostrare un messaggio all'utente o disabilitare la funzionalità Bluetooth
             }
         }
     }
