@@ -18,14 +18,14 @@
         android:id="@+id/button_ciao"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Sub"
-        android:onClick="sub" />
+        android:text="Sub saw"
+        android:onClick="sub_saw" />
 
     <Button
         android:id="@+id/button_salve"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Unsub"
-        android:onClick="unsub" />
+        android:text="Sub lathe"
+        android:onClick="sub_lathe" />
 
 </LinearLayout>

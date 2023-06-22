@@ -24,7 +24,8 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
 
     private static final String TAG = MainActivity.class.getSimpleName();
     private static final String MQTT_BROKER = "tcp://192.168.1.25:1883";  // Indirizzo del broker MQTT
-    private static final String MQTT_TOPIC = "topic/allarme";  // Il topic a cui ci si sottoscrive
+    private static final String MQTT_TOPIC_SEGA = "topic/allarme/sega/1";  // Il topic a cui ci si sottoscrive
+    private static final String MQTT_TOPIC_TORNIO = "topic/allarme/tornio/1";  // Il topic a cui ci si sottoscrive
     private TextToSpeech textToSpeech;
 
     private MqttClient mqttClient;
@@ -56,7 +57,7 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
                     Log.d(TAG, "Contenuto del messaggio: " + payload);
 
                     updateTextView(payload);
-                    speak("MISURA ARRIVATA!");
+                    speak(payload);
                 }
 
                 @Override
@@ -81,20 +82,24 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         });
     }
 
-    public void sub(View view) {
+    public void sub_saw(View view) {
         try {
-            mqttClient.subscribe(MQTT_TOPIC, 0);
-            Log.d(TAG, "Sottoscritto al topic: " + MQTT_TOPIC);
+            mqttClient.unsubscribe(MQTT_TOPIC_TORNIO);
+            Log.d(TAG, "Unsottoscritto al topic: " + MQTT_TOPIC_TORNIO);
+            mqttClient.subscribe(MQTT_TOPIC_SEGA, 0);
+            Log.d(TAG, "Sottoscritto al topic: " + MQTT_TOPIC_SEGA);
         } catch (Exception e) {
 
         }
 
     }
 
-    public void unsub(View view) {
+    public void sub_lathe(View view) {
         try {
-            mqttClient.unsubscribe(MQTT_TOPIC);
-            Log.d(TAG, "Unsottoscritto al topic: " + MQTT_TOPIC);
+            mqttClient.unsubscribe(MQTT_TOPIC_SEGA);
+            Log.d(TAG, "Unsottoscritto al topic: " + MQTT_TOPIC_SEGA);
+            mqttClient.subscribe(MQTT_TOPIC_TORNIO, 0);
+            Log.d(TAG, "Sottoscritto al topic: " + MQTT_TOPIC_TORNIO);
         } catch (Exception e) {
 
         }
