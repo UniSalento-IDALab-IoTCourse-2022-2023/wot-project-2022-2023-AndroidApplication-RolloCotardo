@@ -1,13 +1,17 @@
 package com.example.myapplication;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.speech.tts.TextToSpeech;
+
 import android.util.Log;
 import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
 
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttCallback;
@@ -19,6 +23,19 @@ import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 
 import java.util.Locale;
+import android.Manifest;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.le.BluetoothLeScanner;
+import android.bluetooth.le.ScanCallback;
+import android.bluetooth.le.ScanResult;
+import android.bluetooth.le.ScanSettings;
+import android.content.Context;
+import android.content.pm.PackageManager;
+import android.os.Build;
+import android.os.Bundle;
+import java.util.HashMap;
+import java.util.Map;
 
 public class MainActivity extends AppCompatActivity implements TextToSpeech.OnInitListener {
 
@@ -27,8 +44,17 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
     private static final String MQTT_TOPIC_SEGA = "topic/allarme/sega/1";  // Il topic a cui ci si sottoscrive
     private static final String MQTT_TOPIC_TORNIO = "topic/allarme/tornio/1";  // Il topic a cui ci si sottoscrive
     private TextToSpeech textToSpeech;
-
     private MqttClient mqttClient;
+    private static final int REQUEST_ENABLE_BT = 1;
+    private static final int PERMISSION_REQUEST_COARSE_LOCATION = 2;
+
+    private BluetoothAdapter bluetoothAdapter;
+    private BluetoothLeScanner bluetoothLeScanner;
+    private ScanCallback scanCallback;
+    private int sottoscrittoSega = 0;
+    private int sottoscrittoTornio = 0;
+
+    Map<String, String> beaconMapping = new HashMap<>();
 
 
     @Override
@@ -36,6 +62,37 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         textToSpeech = new TextToSpeech(this, this);
+        bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        bluetoothLeScanner = bluetoothAdapter.getBluetoothLeScanner();
+        scanCallback = new SampleScanCallback();
+        beaconMapping.put("sega1", "FE:BE:B3:37:16:CB");
+        beaconMapping.put("tornio1", "C4:6D:B5:03:3C:FA");
+
+        // Verifica se il dispositivo supporta il BLE
+        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
+            Log.e("MainActivity", "BLE non supportato.");
+            finish();
+        }
+
+        // Verifica i permessi necessari per la scansione BLE su Android 6.0+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, PERMISSION_REQUEST_COARSE_LOCATION);
+            }
+        }
+
+        // Verifica se il dispositivo supporta il BLE
+        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
+            Log.e("MainActivity", "BLE non supportato.");
+            finish();
+        }
+
+        // Verifica i permessi necessari per la scansione BLE su Android 6.0+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, PERMISSION_REQUEST_COARSE_LOCATION);
+            }
+        }
 
 
         try {
@@ -82,28 +139,6 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         });
     }
 
-    public void sub_saw(View view) {
-        try {
-            mqttClient.unsubscribe(MQTT_TOPIC_TORNIO);
-            Log.d(TAG, "Unsottoscritto al topic: " + MQTT_TOPIC_TORNIO);
-            mqttClient.subscribe(MQTT_TOPIC_SEGA, 0);
-            Log.d(TAG, "Sottoscritto al topic: " + MQTT_TOPIC_SEGA);
-        } catch (Exception e) {
-
-        }
-
-    }
-
-    public void sub_lathe(View view) {
-        try {
-            mqttClient.unsubscribe(MQTT_TOPIC_SEGA);
-            Log.d(TAG, "Unsottoscritto al topic: " + MQTT_TOPIC_SEGA);
-            mqttClient.subscribe(MQTT_TOPIC_TORNIO, 0);
-            Log.d(TAG, "Sottoscritto al topic: " + MQTT_TOPIC_TORNIO);
-        } catch (Exception e) {
-
-        }
-    }
 
     private void speak(String text) {
         textToSpeech.speak(text, TextToSpeech.QUEUE_FLUSH, null, "UtteranceId");
@@ -140,4 +175,138 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         }
 
     }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        // Verifica se il Bluetooth è abilitato sul dispositivo, altrimenti richiede l'abilitazione
+        if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled()) {
+            Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.BLUETOOTH}, REQUEST_ENABLE_BT);
+            }
+            startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
+        } else {
+            startScanning();
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        stopScanning();
+    }
+
+    private void startScanning() {
+        ScanSettings settings = new ScanSettings.Builder()
+                .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+                .build();
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.BLUETOOTH}, REQUEST_ENABLE_BT);
+        }
+        bluetoothLeScanner.startScan(null, settings, scanCallback);
+    }
+
+    private void stopScanning() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.BLUETOOTH}, REQUEST_ENABLE_BT);
+        }
+        bluetoothLeScanner.stopScan(scanCallback);
+    }
+
+    private class SampleScanCallback extends ScanCallback {
+        @Override
+        public void onScanResult(int callbackType, ScanResult result) {
+            BluetoothDevice device = result.getDevice();
+            int rssi = result.getRssi();
+
+            if(device.getAddress().equals(beaconMapping.get("sega1"))) {
+                Log.d("MainActivity", "Dispositivo rilevato: " + device.getAddress() + " con RSSI pari a: " + rssi);
+
+                //ti sottoscrivi se stai vicino al macchinario Sega
+                if(rssi > -60 ) {
+                    if(sottoscrittoSega==0) {
+                        try {
+                            mqttClient.subscribe(MQTT_TOPIC_SEGA, 0);
+                            sottoscrittoSega = 1;
+
+                            Log.d(TAG, "Sottoscritto al topic: " + MQTT_TOPIC_SEGA);
+                        } catch (Exception e) {
+
+                        }
+                    }
+                }
+
+                //cancelli la sottoscrizione se sei lontano dal macchinario sega
+                else {
+                    if(sottoscrittoSega==1) {
+                        try {
+                            mqttClient.unsubscribe(MQTT_TOPIC_SEGA);
+                            Log.d(TAG, "Unsottoscritto al topic: " + MQTT_TOPIC_SEGA);
+                            sottoscrittoSega=0;
+                        } catch (MqttException e) {
+
+                        }
+                    }
+                }
+
+            }
+
+            if(device.getAddress().equals(beaconMapping.get("tornio1"))) {
+                Log.d("MainActivity", "Dispositivo rilevato: " + device.getAddress() + " con RSSI pari a: " + rssi);
+
+                //ti sottoscrivi se stai vicino al macchinario tornio
+                if(rssi > -60) {
+                    if(sottoscrittoTornio==0) {
+                        try {
+                            mqttClient.subscribe(MQTT_TOPIC_TORNIO, 0);
+                            sottoscrittoTornio = 1;
+                            Log.d(TAG, "Sottoscritto al topic: " + MQTT_TOPIC_TORNIO);
+                        } catch (Exception e) {
+
+                        }
+                    }
+                }
+
+                //cancelli la sottoscrizione se sei lontano dal macchinario sega
+                else {
+                    if(sottoscrittoTornio==1) {
+                        try {
+                            mqttClient.unsubscribe(MQTT_TOPIC_TORNIO);
+                            Log.d(TAG, "Unsottoscritto al topic: " + MQTT_TOPIC_TORNIO);
+                            sottoscrittoTornio=0;
+                        } catch (MqttException e) {
+
+                        }
+                    }
+                }
+
+            }
+
+
+        }
+
+        @Override
+        public void onScanFailed(int errorCode) {
+            Log.e("MainActivity", "Scansione BLE fallita con codice di errore: " + errorCode);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        if (requestCode == REQUEST_ENABLE_BT) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // Il permesso è stato concesso, puoi avviare la scansione BLE
+                startScanning();
+            } else {
+                // Il permesso è stato negato, potresti mostrare un messaggio all'utente o disabilitare la funzionalità BLE
+                Log.e("MainActivity", "Permesso Bluetooth negato.");
+            }
+        }
+    }
+
+
 }

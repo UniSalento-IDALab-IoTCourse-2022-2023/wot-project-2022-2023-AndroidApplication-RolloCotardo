@@ -14,18 +14,6 @@
         android:text="Label al centro dello schermo"
         android:textSize="24sp" />
 
-    <Button
-        android:id="@+id/button_ciao"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Sub saw"
-        android:onClick="sub_saw" />
 
-    <Button
-        android:id="@+id/button_salve"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Sub lathe"
-        android:onClick="sub_lathe" />
 
 </LinearLayout>
