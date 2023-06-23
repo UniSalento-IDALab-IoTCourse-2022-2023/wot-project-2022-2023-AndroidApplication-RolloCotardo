@@ -11,9 +11,12 @@
         android:id="@+id/label_textview"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Label al centro dello schermo"
-        android:textSize="24sp" />
-
-
+        android:text="Dispositivo in funzione"
+        android:textSize="24sp"
+        android:textColor="#333333"
+        android:textStyle="bold"
+        android:fontFamily="sans-serif"
+        android:padding="16dp" />
 
 </LinearLayout>
+
