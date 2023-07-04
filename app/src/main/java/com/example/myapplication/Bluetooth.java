@@ -22,8 +22,8 @@ import java.util.Map;
 
 public class Bluetooth {
 
-    private static final String MQTT_TOPIC_SEGA = "topic/allarme/sega/1";  // Il topic a cui ci si sottoscrive
-    private static final String MQTT_TOPIC_TORNIO = "topic/allarme/tornio/1";  // Il topic a cui ci si sottoscrive
+    private static final String MQTT_TOPIC_SEGA = "allarme/sega/1";  // Il topic a cui ci si sottoscrive
+    private static final String MQTT_TOPIC_TORNIO = "allarme/tornio/1";  // Il topic a cui ci si sottoscrive
     private int sottoscrittoSega = 0;
     private int sottoscrittoTornio = 0;
 
